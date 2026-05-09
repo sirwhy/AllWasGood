@@ -52,7 +52,10 @@ export default async function LinkToVideoDetailPage({
     where: { id },
     include: {
       project: true,
-      assets: { select: { id: true, url: true, kind: true, mimeType: true, metadata: true } },
+      assets: {
+        select: { id: true, url: true, kind: true, mimeType: true, metadata: true },
+        orderBy: { createdAt: "asc" },
+      },
     },
   });
   if (!generation || generation.userId !== session.user.id) notFound();
@@ -63,8 +66,8 @@ export default async function LinkToVideoDetailPage({
   const storyboard = outputs?.storyboard;
   const params_ = (generation.parameters as Record<string, unknown> | null) ?? null;
   const videoAsset = generation.assets.find((a) => a.kind === "VIDEO");
-  const sceneImages = generation.assets.filter((a) => a.kind === "IMAGE");
-  const sceneAudios = generation.assets.filter((a) => a.kind === "AUDIO");
+  const sceneImages = sortBySceneIndex(generation.assets.filter((a) => a.kind === "IMAGE"));
+  const sceneAudios = sortBySceneIndex(generation.assets.filter((a) => a.kind === "AUDIO"));
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -264,6 +267,19 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-right text-sm">{value}</span>
     </div>
   );
+}
+
+function sortBySceneIndex<T extends { metadata: unknown }>(assets: T[]): T[] {
+  // Tagged in the worker with metadata.sceneIndex; fall back to insertion
+  // order when older rows don't have the tag.
+  return [...assets].sort((a, b) => {
+    const ai = (a.metadata as { sceneIndex?: number } | null)?.sceneIndex;
+    const bi = (b.metadata as { sceneIndex?: number } | null)?.sceneIndex;
+    if (typeof ai === "number" && typeof bi === "number") return ai - bi;
+    if (typeof ai === "number") return -1;
+    if (typeof bi === "number") return 1;
+    return 0;
+  });
 }
 
 function StatusBadge({ status }: { status: string }) {

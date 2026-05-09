@@ -292,8 +292,12 @@ export async function runLinkToVideo(payload: LinkToVideoPayload): Promise<LinkT
     await rm(tmpRoot, { recursive: true, force: true });
   }
 
-  // record asset rows for images, audios, and the final video
-  for (const img of persistedImages) {
+  // record asset rows for images, audios, and the final video. We tag
+  // each per-scene asset with its scene index so the detail page can
+  // pair images / audios with the storyboard reliably even if the DB
+  // returns rows out of insertion order.
+  for (let i = 0; i < persistedImages.length; i++) {
+    const img = persistedImages[i];
     await db.asset.create({
       data: {
         userId,
@@ -303,11 +307,17 @@ export async function runLinkToVideo(payload: LinkToVideoPayload): Promise<LinkT
         mimeType: img.mimeType ?? null,
         width: img.width ?? null,
         height: img.height ?? null,
-        metadata: { source: "link-to-video", role: "scene-image" } as unknown as Prisma.InputJsonValue,
+        metadata: {
+          source: "link-to-video",
+          role: "scene-image",
+          sceneIndex: i,
+          sceneId: storyboard.scenes[i]?.id ?? `s${i + 1}`,
+        } as unknown as Prisma.InputJsonValue,
       },
     });
   }
-  for (const aud of persistedAudios) {
+  for (let i = 0; i < persistedAudios.length; i++) {
+    const aud = persistedAudios[i];
     await db.asset.create({
       data: {
         userId,
@@ -316,7 +326,12 @@ export async function runLinkToVideo(payload: LinkToVideoPayload): Promise<LinkT
         url: aud.url,
         mimeType: aud.mimeType ?? "audio/mpeg",
         durationMs: aud.durationMs ?? null,
-        metadata: { source: "link-to-video", role: "scene-audio" } as unknown as Prisma.InputJsonValue,
+        metadata: {
+          source: "link-to-video",
+          role: "scene-audio",
+          sceneIndex: i,
+          sceneId: storyboard.scenes[i]?.id ?? `s${i + 1}`,
+        } as unknown as Prisma.InputJsonValue,
       },
     });
   }
