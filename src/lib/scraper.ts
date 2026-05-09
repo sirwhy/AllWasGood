@@ -177,12 +177,13 @@ function parseAndValidateUrl(raw: string): URL {
 async function assertSafeHost(hostname: string) {
   // strip ipv6 brackets
   const host = hostname.replace(/^\[|\]$/g, "");
-  // bypass guard for explicitly-allowed dev hosts
+  // localhost / *.local: blocked in production, allowed in dev/test so you
+  // can scrape a product page running on your own machine.
   if (host === "localhost" || host.endsWith(".local")) {
     if (env.NODE_ENV === "production") {
-      throw new Error(`Refusing to fetch ${hostname}: not allowed in production`);
+      throw new Error(`Refusing to fetch ${hostname}: loopback/local hostnames are blocked in production`);
     }
-    throw new Error(`Refusing to fetch ${hostname}: loopback/local hostnames are blocked`);
+    return;
   }
   let address: string;
   let family: number;
