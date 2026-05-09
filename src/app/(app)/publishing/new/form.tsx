@@ -60,6 +60,18 @@ export function ScheduleForm({
     const allUrls = [...pickedUrls, ...extraUrls.split(/\s+|\n/).map((s) => s.trim()).filter(Boolean)].join("\n");
     formData.set("socialAccountIds", [...selectedAccounts].join(","));
     formData.set("assetUrls", allUrls);
+    // The <input type="datetime-local"> emits a TZ-naive string. Parse it
+    // here (in the browser, which interprets it in the user's local zone)
+    // and forward as a UTC ISO so the server can compute the correct
+    // BullMQ delay regardless of where it runs (Railway containers are
+    // typically UTC).
+    const local = formData.get("scheduledFor");
+    if (typeof local === "string" && local) {
+      const dt = new Date(local);
+      if (!Number.isNaN(dt.getTime())) {
+        formData.set("scheduledFor", dt.toISOString());
+      }
+    }
     startTransition(async () => {
       try {
         await schedulePosts(formData);

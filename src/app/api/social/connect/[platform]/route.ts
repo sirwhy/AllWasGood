@@ -42,12 +42,21 @@ export async function GET(
     codeVerifier: pkce?.verifier,
   });
   const redirectUri = `${env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "")}/api/social/callback/${platform.toLowerCase()}`;
-  const authorizeUrl = adapter.oauth.buildAuthorizeUrl({
-    redirectUri,
-    state,
-    codeChallenge: pkce?.challenge,
-    codeVerifier: pkce?.verifier,
-  });
+  // Stub adapters (TikTok / IG / FB / Threads) report configured=true once
+  // their env vars are set but throw inside buildAuthorizeUrl since the
+  // actual OAuth flow isn't implemented yet. Surface that as a 501 with the
+  // adapter's own error message instead of a bare 500.
+  let authorizeUrl: string;
+  try {
+    authorizeUrl = adapter.oauth.buildAuthorizeUrl({
+      redirectUri,
+      state,
+      codeChallenge: pkce?.challenge,
+      codeVerifier: pkce?.verifier,
+    });
+  } catch (e) {
+    return NextResponse.json({ error: (e as Error).message }, { status: 501 });
+  }
 
   return NextResponse.redirect(authorizeUrl);
 }
