@@ -119,17 +119,25 @@ class TwitterPublisher implements SocialPublisher {
     accessToken: string;
     post: { caption: string; hashtags: string[]; assetUrls: string[] };
   }): Promise<PublishedPost> {
-    const text = [opts.post.caption, ...opts.post.hashtags.map((h) => `#${h}`)]
-      .filter(Boolean)
-      .join(" ")
-      .slice(0, 280);
     // Note: media upload to Twitter requires the v1.1 media endpoint with
     // OAuth1 — for this MVP we post text-only and include the asset URL in
     // the tweet body so Twitter unfurls it as a card. Full media upload is a
     // follow-up.
-    const tweetText = opts.post.assetUrls[0]
-      ? `${text} ${opts.post.assetUrls[0]}`.slice(0, 280)
-      : text;
+    const TWITTER_MAX = 280;
+    const fullCaption = [opts.post.caption, ...opts.post.hashtags.map((h) => `#${h}`)]
+      .filter(Boolean)
+      .join(" ");
+    const url = opts.post.assetUrls[0];
+    let tweetText: string;
+    if (url) {
+      // Reserve space for `" " + url` so the URL never gets truncated.
+      const reserve = url.length + 1;
+      const room = Math.max(0, TWITTER_MAX - reserve);
+      const captionPart = fullCaption.slice(0, room);
+      tweetText = captionPart ? `${captionPart} ${url}` : url.slice(0, TWITTER_MAX);
+    } else {
+      tweetText = fullCaption.slice(0, TWITTER_MAX);
+    }
     const res = await fetch("https://api.twitter.com/2/tweets", {
       method: "POST",
       headers: {
