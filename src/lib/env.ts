@@ -47,6 +47,8 @@ const serverSchema = z.object({
 
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(4),
 
+  SCRAPER_PROXY_URL: z.string().url().optional(),
+
   PORT: z.coerce.number().int().positive().default(3000),
 });
 
