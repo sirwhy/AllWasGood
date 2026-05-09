@@ -321,6 +321,7 @@ model ScheduledPost {
   userId          String
   projectId       String?
   socialAccountId String
+  title           String?
   caption         String              @db.Text
   hashtags        String[]            @default([])
   assetUrls       String[]            @default([])  // URLs to media to post

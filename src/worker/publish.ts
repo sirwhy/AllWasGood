@@ -34,7 +34,10 @@ async function runPublish(job: Job<PublishJobData>) {
     console.warn(`[publish-worker] post ${scheduledPostId} not found, skipping`);
     return;
   }
-  if (post.status !== "SCHEDULED") {
+  // Allow SCHEDULED (first try) or PUBLISHING (retry of a job that was
+  // mid-flight when it threw). Anything terminal (PUBLISHED / CANCELED /
+  // FAILED-after-final-retry) is skipped to avoid double-posting.
+  if (post.status !== "SCHEDULED" && post.status !== "PUBLISHING") {
     console.log(
       `[publish-worker] post ${scheduledPostId} status=${post.status}, skipping`,
     );
@@ -87,6 +90,7 @@ async function runPublish(job: Job<PublishJobData>) {
         caption: post.caption,
         hashtags: post.hashtags,
         assetUrls: post.assetUrls,
+        title: post.title ?? undefined,
       },
     });
     await db.scheduledPost.update({
@@ -101,10 +105,16 @@ async function runPublish(job: Job<PublishJobData>) {
     console.log(`[publish-worker] published ${scheduledPostId} -> ${out.externalPostId}`);
   } catch (e) {
     console.error(`[publish-worker] publish failed for ${scheduledPostId}:`, e);
+    // Distinguish transient (will retry) vs final (out of attempts) errors:
+    // - On non-final attempts we keep status=PUBLISHING so the BullMQ retry
+    //   passes the status guard above.
+    // - On the final attempt we mark FAILED so the UI surfaces the failure.
+    const totalAttempts = job.opts?.attempts ?? 1;
+    const isFinalAttempt = job.attemptsMade + 1 >= totalAttempts;
     await db.scheduledPost.update({
       where: { id: scheduledPostId },
       data: {
-        status: "FAILED",
+        status: isFinalAttempt ? "FAILED" : "PUBLISHING",
         errorMessage: (e as Error).message,
       },
     });

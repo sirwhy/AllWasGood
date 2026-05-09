@@ -66,7 +66,7 @@ export async function schedulePosts(formData: FormData) {
         assetUrls,
         scheduledFor,
         status: "SCHEDULED",
-        ...(input.title ? { errorMessage: null } : {}),
+        ...(input.title ? { title: input.title } : {}),
       },
     });
     await enqueuePublishJob({
