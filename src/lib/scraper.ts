@@ -243,9 +243,27 @@ function isPrivateIpv4(ip: string): boolean {
 function isPrivateIpv6(ip: string): boolean {
   const lower = ip.toLowerCase();
   if (lower === "::" || lower === "::1") return true;
-  // ::ffff:x.x.x.x — ipv4-mapped, recheck the v4 part
-  const v4mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
-  if (v4mapped) return isPrivateIpv4(v4mapped[1]);
+  // ::ffff:x.x.x.x — IPv4-mapped, mixed dotted-quad notation
+  const v4mappedDotted = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4mappedDotted) return isPrivateIpv4(v4mappedDotted[1]);
+  // ::ffff:HHHH:LLLL — IPv4-mapped in hex (the form WHATWG URL + dns.lookup
+  // produce, so this is the form we usually see in practice). Reconstruct
+  // the four octets and recheck against the IPv4 blocklist.
+  const v4mappedHex = lower.match(/^::ffff:([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (v4mappedHex) {
+    const hi = parseInt(v4mappedHex[1], 16);
+    const lo = parseInt(v4mappedHex[2], 16);
+    const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    return isPrivateIpv4(v4);
+  }
+  // ::HHHH:LLLL — IPv4-compatible (deprecated, but be safe)
+  const v4compat = lower.match(/^::([0-9a-f]{1,4}):([0-9a-f]{1,4})$/);
+  if (v4compat) {
+    const hi = parseInt(v4compat[1], 16);
+    const lo = parseInt(v4compat[2], 16);
+    const v4 = `${(hi >> 8) & 0xff}.${hi & 0xff}.${(lo >> 8) & 0xff}.${lo & 0xff}`;
+    return isPrivateIpv4(v4);
+  }
   // fc00::/7 — unique local
   if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
   // fe80::/10 — link-local
