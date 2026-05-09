@@ -1,0 +1,67 @@
+{
+  "app": {
+    "name": "AllWasGood",
+    "tagline": "Suite konten pemasaran AI milik kamu — self-hosted."
+  },
+  "nav": {
+    "dashboard": "Beranda",
+    "smart_creation": "Smart Creation",
+    "image_agent": "Image Agent",
+    "video_agent": "Video Agent",
+    "avatars": "Avatar Digital",
+    "publishing": "Auto-Publishing",
+    "projects": "Proyek",
+    "brand_kit": "Brand Kit",
+    "settings": "Pengaturan",
+    "sign_out": "Keluar"
+  },
+  "auth": {
+    "sign_in": "Masuk",
+    "sign_up": "Daftar",
+    "email": "Email",
+    "password": "Kata sandi",
+    "name": "Nama",
+    "no_account": "Belum punya akun?",
+    "have_account": "Sudah punya akun?",
+    "create_account": "Buat akun",
+    "or_continue": "Atau lanjutkan dengan"
+  },
+  "dashboard": {
+    "title": "Selamat datang kembali",
+    "subtitle": "Mulai kampanye baru atau lanjutkan proyek terakhirmu.",
+    "quick_actions": "Aksi cepat",
+    "recent_generations": "Generasi terbaru",
+    "no_generations": "Belum ada generasi — buat konten pertamamu sekarang."
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "tabs": {
+      "api_keys": "API Keys",
+      "brand_kit": "Brand Kit",
+      "profile": "Profil"
+    },
+    "api_keys": {
+      "title": "API Key Provider AI",
+      "description": "Pakai key milikmu sendiri. Tiap key disimpan terenkripsi dengan AES-256-GCM dan hanya didekripsi di memory saat job berjalan.",
+      "add": "Tambah key",
+      "provider": "Provider",
+      "label": "Label (opsional)",
+      "api_key": "API Key",
+      "base_url": "Base URL (opsional)",
+      "base_url_hint": "Untuk gateway OpenAI-compatible seperti 9router, OpenRouter, Together, vLLM, dll.",
+      "save": "Simpan",
+      "delete": "Hapus",
+      "no_keys": "Belum ada key — tambahkan provider pertamamu di atas.",
+      "saved": "Tersimpan",
+      "deleted": "Terhapus"
+    }
+  },
+  "common": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "delete": "Hapus",
+    "edit": "Ubah",
+    "loading": "Memuat…",
+    "error": "Terjadi kesalahan"
+  }
+}

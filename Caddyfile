@@ -1,0 +1,11 @@
+# Replace example.com with your real domain. Caddy auto-fetches LE certs.
+{$DOMAIN:example.com} {
+    encode zstd gzip
+    reverse_proxy web:3000
+
+    header {
+        Strict-Transport-Security "max-age=63072000"
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+    }
+}

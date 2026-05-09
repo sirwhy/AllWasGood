@@ -1,0 +1,349 @@
+// Pippit Clone — Prisma schema
+// Provider-agnostic AI marketing content suite.
+// All API keys, generated assets, and queued jobs are persisted here.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// AUTH — NextAuth/Auth.js v5 with Prisma adapter
+// =============================================================================
+
+model User {
+  id            String        @id @default(cuid())
+  email         String?       @unique
+  emailVerified DateTime?
+  name          String?
+  image         String?
+  passwordHash  String?
+  role          UserRole      @default(USER)
+  locale        String        @default("en")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  accounts      Account[]
+  sessions      Session[]
+  credentials   Credential[]
+  brands        Brand[]
+  projects      Project[]
+  generations   Generation[]
+  jobs          Job[]
+  socialAccounts SocialAccount[]
+  scheduledPosts ScheduledPost[]
+  assets        Asset[]
+}
+
+enum UserRole {
+  ADMIN
+  USER
+}
+
+model Account {
+  id                String   @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?  @db.Text
+  access_token      String?  @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?  @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// =============================================================================
+// CREDENTIALS — user-supplied API keys for AI providers (encrypted at rest)
+// =============================================================================
+
+model Credential {
+  id            String           @id @default(cuid())
+  userId        String
+  provider      String           // e.g. "openai", "anthropic", "replicate", "elevenlabs"
+  label         String?          // user-friendly label
+  encryptedKey  String           @db.Text  // AES-256-GCM ciphertext (base64)
+  baseUrl       String?          // for OpenAI-compatible endpoints
+  metadata      Json?            // arbitrary provider-specific config
+  isDefault     Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, provider, label])
+  @@index([userId])
+}
+
+// =============================================================================
+// BRAND KIT — colors, logos, fonts, voice/tone for consistent generation
+// =============================================================================
+
+model Brand {
+  id          String    @id @default(cuid())
+  userId      String
+  name        String
+  description String?
+  logoUrl     String?
+  primaryColor String?
+  secondaryColor String?
+  accentColor String?
+  fontFamily  String?
+  voiceTone   String?   @db.Text  // brand voice / tone of voice description
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects Project[]
+
+  @@index([userId])
+}
+
+// =============================================================================
+// PROJECTS — a workspace for related content (a campaign, a product launch, etc)
+// =============================================================================
+
+model Project {
+  id          String    @id @default(cuid())
+  userId      String
+  brandId     String?
+  name        String
+  description String?
+  productUrl  String?   // for link-to-content workflows
+  productData Json?     // scraped product info (title, price, images, descriptions)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  brand       Brand?       @relation(fields: [brandId], references: [id], onDelete: SetNull)
+  generations Generation[]
+  scheduledPosts ScheduledPost[]
+
+  @@index([userId])
+  @@index([brandId])
+}
+
+// =============================================================================
+// GENERATIONS — every output (image / video / avatar / copy / TTS) lives here.
+// One generation = one logical artifact requested by the user.
+// =============================================================================
+
+model Generation {
+  id          String           @id @default(cuid())
+  userId      String
+  projectId   String?
+  type        GenerationType
+  status      GenerationStatus @default(PENDING)
+  provider    String           // which provider was used (e.g. "openai", "replicate")
+  model       String           // which model was used (e.g. "gpt-4o", "kling-v1.6")
+  prompt      String           @db.Text
+  negativePrompt String?       @db.Text
+  parameters  Json?            // provider-specific params (size, duration, voice, etc)
+  inputs      Json?            // references to input assets (image urls, audio, etc)
+  outputs     Json?            // [{ url, thumbnailUrl, mimeType, durationMs, width, height }]
+  cost        Decimal?         @db.Decimal(10, 6)
+  errorMessage String?         @db.Text
+  jobId       String?          @unique
+  createdAt   DateTime         @default(now())
+  completedAt DateTime?
+  updatedAt   DateTime         @updatedAt
+
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  job     Job?     @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  assets  Asset[]
+
+  @@index([userId, createdAt])
+  @@index([projectId])
+  @@index([status])
+}
+
+enum GenerationType {
+  TEXT          // marketing copy, captions, scripts
+  IMAGE         // product images, posters, social posts
+  VIDEO         // marketing videos, link-to-video, ads
+  AVATAR_VIDEO  // talking-avatar videos
+  TTS           // text-to-speech
+  STT           // speech-to-text (transcription)
+  MUSIC         // background music
+  EDIT_VIDEO    // edited video (timeline composition)
+}
+
+enum GenerationStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+// =============================================================================
+// ASSETS — files in storage (S3/local). Either uploaded by user or generated.
+// =============================================================================
+
+model Asset {
+  id           String     @id @default(cuid())
+  userId       String
+  generationId String?
+  kind         AssetKind
+  url          String     @db.Text
+  thumbnailUrl String?    @db.Text
+  mimeType     String?
+  sizeBytes    BigInt?
+  width        Int?
+  height       Int?
+  durationMs   Int?
+  metadata     Json?
+  createdAt    DateTime   @default(now())
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generation Generation? @relation(fields: [generationId], references: [id], onDelete: SetNull)
+
+  @@index([userId])
+  @@index([generationId])
+}
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+  AUDIO
+  DOCUMENT
+  OTHER
+}
+
+// =============================================================================
+// JOBS — BullMQ job persistence mirror (allows audit + retry + UI listing).
+// =============================================================================
+
+model Job {
+  id          String    @id @default(cuid())
+  userId      String
+  queue       String    // queue name (e.g. "generation", "render", "publish")
+  type        String    // job type (e.g. "image.generate", "video.render", "social.publish")
+  payload     Json
+  status      JobStatus @default(PENDING)
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(3)
+  bullJobId   String?   // id assigned by BullMQ
+  result      Json?
+  errorMessage String?  @db.Text
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  generation Generation?
+
+  @@index([userId, status])
+  @@index([status])
+  @@index([queue, status])
+}
+
+enum JobStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELED
+}
+
+// =============================================================================
+// SOCIAL ACCOUNTS — connected social channels for auto-publishing
+// =============================================================================
+
+model SocialAccount {
+  id            String   @id @default(cuid())
+  userId        String
+  platform      SocialPlatform
+  externalId    String   // platform user/account id
+  username      String?
+  accessToken   String   @db.Text  // encrypted
+  refreshToken  String?  @db.Text  // encrypted
+  expiresAt     DateTime?
+  metadata      Json?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduledPosts ScheduledPost[]
+
+  @@unique([userId, platform, externalId])
+  @@index([userId])
+}
+
+enum SocialPlatform {
+  TIKTOK
+  INSTAGRAM
+  YOUTUBE
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  THREADS
+}
+
+// =============================================================================
+// SCHEDULED POSTS — auto-publishing queue
+// =============================================================================
+
+model ScheduledPost {
+  id              String              @id @default(cuid())
+  userId          String
+  projectId       String?
+  socialAccountId String
+  caption         String              @db.Text
+  hashtags        String[]            @default([])
+  assetUrls       String[]            @default([])  // URLs to media to post
+  scheduledFor    DateTime
+  status          ScheduledPostStatus @default(SCHEDULED)
+  externalPostId  String?             // post id returned by platform
+  errorMessage    String?             @db.Text
+  publishedAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project       Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  socialAccount SocialAccount @relation(fields: [socialAccountId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([scheduledFor, status])
+}
+
+enum ScheduledPostStatus {
+  SCHEDULED
+  PUBLISHING
+  PUBLISHED
+  FAILED
+  CANCELED
+}
