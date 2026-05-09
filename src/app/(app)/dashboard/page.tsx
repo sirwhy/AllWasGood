@@ -61,7 +61,7 @@ export default async function DashboardPage() {
       <section>
         <h2 className="mb-3 text-lg font-semibold">{tDash("quick_actions")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <QuickAction icon={Sparkles} title={tNav("smart_creation")} description="Link → marketing copy + visuals" disabled />
+          <QuickAction icon={Sparkles} title={tNav("smart_creation")} description="Link → marketing copy + visuals" href="/smart-creation" disabled={credentials.length === 0} />
           <QuickAction icon={ImageIcon} title={tNav("image_agent")} description="Product posters, social posts" disabled />
           <QuickAction icon={Video} title={tNav("video_agent")} description="Text/link → marketing video" disabled />
           <QuickAction icon={User2} title={tNav("avatars")} description="Talking-head AI avatars" disabled />

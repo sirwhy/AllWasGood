@@ -24,6 +24,7 @@ import {
 } from "@/providers/registry";
 import { QUEUE_NAMES } from "@/lib/queue";
 import type { GeneratedAsset } from "@/providers/types";
+import { runSmartCreation, type SmartCreationPayload } from "@/lib/smart-creation";
 
 interface JobData {
   jobId: string;
@@ -68,7 +69,12 @@ async function runJob(job: Job<JobData>) {
   };
   const p = payload as GenPayload;
 
-  const creds = await resolveCredentials(userId, p.provider);
+  // Smart Creation manages its own credentials (LLM + optional image), so we
+  // skip the global resolveCredentials() call for that path.
+  const needsTopLevelCreds = job.name !== "smart-creation.generate";
+  const creds = needsTopLevelCreds
+    ? await resolveCredentials(userId, p.provider)
+    : { apiKey: "", baseUrl: undefined };
 
   let assets: GeneratedAsset[] = [];
   let resultText: string | undefined;
@@ -165,6 +171,46 @@ async function runJob(job: Job<JobData>) {
       );
       resultText = r.text;
       break;
+    }
+    case "smart-creation.generate": {
+      const result = await runSmartCreation(payload as unknown as SmartCreationPayload);
+      const summary = result.variants
+        .map((v, i) => `Variant ${i + 1}: ${v.hook}\n${v.caption}`)
+        .join("\n\n");
+      resultText = summary;
+      const generationId = (payload as unknown as SmartCreationPayload).generationId;
+      await db.generation.update({
+        where: { id: generationId },
+        data: {
+          outputs: {
+            kind: "smart-creation",
+            product: result.product as unknown as Prisma.InputJsonValue,
+            variants: result.variants as unknown as Prisma.InputJsonValue,
+            imagePrompts: result.imagePrompts,
+            images: result.images as unknown as Prisma.InputJsonValue,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+      // We already wrote outputs above; tell the post-job code to skip its own
+      // outputs/asset write by clearing assets.
+      assets = [];
+      await db.job.update({
+        where: { id: jobId },
+        data: {
+          status: "SUCCEEDED",
+          result: {
+            summary,
+            variants: result.variants.length,
+            images: result.images.length,
+          } as unknown as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
+      });
+      await db.generation.update({
+        where: { id: generationId },
+        data: { status: "SUCCEEDED", completedAt: new Date() },
+      });
+      return;
     }
     default:
       throw new Error(`Unknown job type: ${job.name}`);
