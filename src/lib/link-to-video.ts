@@ -262,7 +262,8 @@ export async function runLinkToVideo(payload: LinkToVideoPayload): Promise<LinkT
       storyboard.scenes.map(async (scene, i) => {
         const imgUrl = persistedImages[i].url;
         const audUrl = persistedAudios[i].url;
-        const imgPath = join(tmpRoot, `img-${i}.${imgUrl.split(".").pop()?.split("?")[0] || "jpg"}`);
+        const imgExt = imgUrl.match(/\.(png|jpe?g|webp|gif|avif|bmp|tiff?)(?:\?|#|$)/i)?.[1]?.toLowerCase() || "jpg";
+        const imgPath = join(tmpRoot, `img-${i}.${imgExt}`);
         const audPath = join(tmpRoot, `aud-${i}.mp3`);
         await downloadToFile(imgUrl, imgPath);
         await downloadToFile(audUrl, audPath);
