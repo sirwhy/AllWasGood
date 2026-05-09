@@ -9,6 +9,7 @@ import {
   Video,
   User2,
   Send,
+  Wand2,
   Folder,
   Palette,
   Settings,
@@ -31,6 +32,7 @@ const PRIMARY: NavItem[] = [
   { href: "/image-agent", labelKey: "image_agent", icon: ImageIcon, comingSoon: true },
   { href: "/video-agent", labelKey: "video_agent", icon: Video, comingSoon: true },
   { href: "/avatars", labelKey: "avatars", icon: User2, comingSoon: true },
+  { href: "/editor", labelKey: "editor", icon: Wand2 },
   { href: "/publishing", labelKey: "publishing", icon: Send, comingSoon: true },
 ];
 
