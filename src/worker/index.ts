@@ -25,6 +25,7 @@ import {
 import { QUEUE_NAMES } from "@/lib/queue";
 import type { GeneratedAsset } from "@/providers/types";
 import { runSmartCreation, type SmartCreationPayload } from "@/lib/smart-creation";
+import { runLinkToVideo, type LinkToVideoPayload } from "@/lib/link-to-video";
 
 interface JobData {
   jobId: string;
@@ -69,9 +70,10 @@ async function runJob(job: Job<JobData>) {
   };
   const p = payload as GenPayload;
 
-  // Smart Creation manages its own credentials (LLM + optional image), so we
-  // skip the global resolveCredentials() call for that path.
-  const needsTopLevelCreds = job.name !== "smart-creation.generate";
+  // Some jobs orchestrate multiple credentials (LLM + image + tts) and
+  // resolve them themselves, so we skip the global resolveCredentials() call.
+  const selfManagedCreds = new Set(["smart-creation.generate", "link-to-video.generate"]);
+  const needsTopLevelCreds = !selfManagedCreds.has(job.name);
   const creds = needsTopLevelCreds
     ? await resolveCredentials(userId, p.provider)
     : { apiKey: "", baseUrl: undefined };
@@ -202,6 +204,40 @@ async function runJob(job: Job<JobData>) {
             summary,
             variants: result.variants.length,
             images: result.images.length,
+          } as unknown as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
+      });
+      await db.generation.update({
+        where: { id: generationId },
+        data: { status: "SUCCEEDED", completedAt: new Date() },
+      });
+      return;
+    }
+    case "link-to-video.generate": {
+      const result = await runLinkToVideo(payload as unknown as LinkToVideoPayload);
+      const generationId = (payload as unknown as LinkToVideoPayload).generationId;
+      await db.generation.update({
+        where: { id: generationId },
+        data: {
+          outputs: {
+            kind: "link-to-video",
+            product: result.product as unknown as Prisma.InputJsonValue,
+            storyboard: result.storyboard as unknown as Prisma.InputJsonValue,
+            video: { url: result.video.url, contentType: result.video.contentType },
+            sceneImages: result.sceneImages as unknown as Prisma.InputJsonValue,
+            sceneAudios: result.sceneAudios as unknown as Prisma.InputJsonValue,
+          } as unknown as Prisma.InputJsonValue,
+        },
+      });
+      assets = [];
+      await db.job.update({
+        where: { id: jobId },
+        data: {
+          status: "SUCCEEDED",
+          result: {
+            videoUrl: result.video.url,
+            scenes: result.storyboard.scenes.length,
           } as unknown as Prisma.InputJsonValue,
           completedAt: new Date(),
         },
