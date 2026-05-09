@@ -68,6 +68,7 @@ export default async function LinkToVideoDetailPage({
   const videoAsset = generation.assets.find((a) => a.kind === "VIDEO");
   const sceneImages = sortBySceneIndex(generation.assets.filter((a) => a.kind === "IMAGE"));
   const sceneAudios = sortBySceneIndex(generation.assets.filter((a) => a.kind === "AUDIO"));
+  const aspectClass = aspectRatioClass(params_?.aspectRatio);
 
   return (
     <div className="flex flex-col gap-6 p-6">
@@ -138,7 +139,7 @@ export default async function LinkToVideoDetailPage({
                   src={videoAsset.url}
                   controls
                   preload="metadata"
-                  className="aspect-[9/16] w-full bg-black"
+                  className={`${aspectClass} w-full bg-black`}
                 />
                 <CardContent className="flex flex-col gap-2 pt-3">
                   <Button asChild>
@@ -267,6 +268,18 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-right text-sm">{value}</span>
     </div>
   );
+}
+
+function aspectRatioClass(raw: unknown): string {
+  switch (raw) {
+    case "16:9":
+      return "aspect-video";
+    case "1:1":
+      return "aspect-square";
+    case "9:16":
+    default:
+      return "aspect-[9/16]";
+  }
 }
 
 function sortBySceneIndex<T extends { metadata: unknown }>(assets: T[]): T[] {
