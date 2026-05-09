@@ -124,17 +124,21 @@ class TwitterPublisher implements SocialPublisher {
     // the tweet body so Twitter unfurls it as a card. Full media upload is a
     // follow-up.
     const TWITTER_MAX = 280;
+    // Twitter wraps every URL through t.co to a fixed display length
+    // (currently 23 chars regardless of the real URL), so the URL only
+    // costs 23 + 1 (space) chars from the 280 budget no matter how long
+    // the original CDN URL is. See https://developer.x.com/en/docs/counting-characters
+    const TCO_LENGTH = 23;
     const fullCaption = [opts.post.caption, ...opts.post.hashtags.map((h) => `#${h}`)]
       .filter(Boolean)
       .join(" ");
     const url = opts.post.assetUrls[0];
     let tweetText: string;
     if (url) {
-      // Reserve space for `" " + url` so the URL never gets truncated.
-      const reserve = url.length + 1;
+      const reserve = TCO_LENGTH + 1;
       const room = Math.max(0, TWITTER_MAX - reserve);
       const captionPart = fullCaption.slice(0, room);
-      tweetText = captionPart ? `${captionPart} ${url}` : url.slice(0, TWITTER_MAX);
+      tweetText = captionPart ? `${captionPart} ${url}` : url;
     } else {
       tweetText = fullCaption.slice(0, TWITTER_MAX);
     }
