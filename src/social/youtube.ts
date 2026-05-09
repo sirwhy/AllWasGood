@@ -108,7 +108,7 @@ class YoutubePublisher implements SocialPublisher {
 
     const meta = {
       snippet: {
-        title: (opts.post.title ?? opts.post.caption.split("\n")[0] ?? "Video").slice(0, 95),
+        title: (opts.post.title || opts.post.caption.split("\n")[0] || "Video").slice(0, 95),
         description: [opts.post.caption, ...opts.post.hashtags.map((h) => `#${h}`)]
           .filter(Boolean)
           .join("\n"),
