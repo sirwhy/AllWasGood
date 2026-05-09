@@ -1,0 +1,67 @@
+{
+  "app": {
+    "name": "AllWasGood",
+    "tagline": "Your AI marketing content suite — self-hosted."
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "smart_creation": "Smart Creation",
+    "image_agent": "Image Agent",
+    "video_agent": "Video Agent",
+    "avatars": "Digital Avatars",
+    "publishing": "Auto-Publishing",
+    "projects": "Projects",
+    "brand_kit": "Brand Kit",
+    "settings": "Settings",
+    "sign_out": "Sign out"
+  },
+  "auth": {
+    "sign_in": "Sign in",
+    "sign_up": "Sign up",
+    "email": "Email",
+    "password": "Password",
+    "name": "Name",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?",
+    "create_account": "Create account",
+    "or_continue": "Or continue with"
+  },
+  "dashboard": {
+    "title": "Welcome back",
+    "subtitle": "Spin up a campaign or jump into your latest project.",
+    "quick_actions": "Quick actions",
+    "recent_generations": "Recent generations",
+    "no_generations": "No generations yet — create your first piece of content."
+  },
+  "settings": {
+    "title": "Settings",
+    "tabs": {
+      "api_keys": "API Keys",
+      "brand_kit": "Brand Kit",
+      "profile": "Profile"
+    },
+    "api_keys": {
+      "title": "AI Provider API Keys",
+      "description": "Bring your own keys. Each key is encrypted at rest with AES-256-GCM and only ever decrypted in memory at job runtime.",
+      "add": "Add key",
+      "provider": "Provider",
+      "label": "Label (optional)",
+      "api_key": "API Key",
+      "base_url": "Base URL (optional)",
+      "base_url_hint": "For OpenAI-compatible gateways like 9router, OpenRouter, Together, vLLM, etc.",
+      "save": "Save",
+      "delete": "Delete",
+      "no_keys": "No keys yet — add your first provider above.",
+      "saved": "Saved",
+      "deleted": "Deleted"
+    }
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading…",
+    "error": "Something went wrong"
+  }
+}

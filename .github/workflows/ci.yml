@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Generate Prisma Client
+        run: pnpm db:generate
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        env:
+          # Build-time placeholders. Real values are injected at deploy time.
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public
+          REDIS_URL: redis://localhost:6379
+          AUTH_SECRET: ci_placeholder_auth_secret_must_be_at_least_16_chars
+          CREDENTIAL_ENCRYPTION_KEY: ci_placeholder_credential_encryption_key_must_be_32_chars_long
+          NEXT_PUBLIC_APP_URL: http://localhost:3000
+        run: pnpm build
