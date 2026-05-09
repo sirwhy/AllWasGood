@@ -25,6 +25,7 @@ import {
 import { QUEUE_NAMES } from "@/lib/queue";
 import type { GeneratedAsset } from "@/providers/types";
 import { runSmartCreation, type SmartCreationPayload } from "@/lib/smart-creation";
+import { runEditorRender, type EditorRenderPayload } from "@/lib/editor";
 
 interface JobData {
   jobId: string;
@@ -69,9 +70,10 @@ async function runJob(job: Job<JobData>) {
   };
   const p = payload as GenPayload;
 
-  // Smart Creation manages its own credentials (LLM + optional image), so we
-  // skip the global resolveCredentials() call for that path.
-  const needsTopLevelCreds = job.name !== "smart-creation.generate";
+  // Smart Creation + AI Editor manage their own credentials, so we skip the
+  // global resolveCredentials() call for those paths.
+  const needsTopLevelCreds =
+    job.name !== "smart-creation.generate" && job.name !== "editor.render";
   const creds = needsTopLevelCreds
     ? await resolveCredentials(userId, p.provider)
     : { apiKey: "", baseUrl: undefined };
@@ -208,6 +210,24 @@ async function runJob(job: Job<JobData>) {
       });
       await db.generation.update({
         where: { id: generationId },
+        data: { status: "SUCCEEDED", completedAt: new Date() },
+      });
+      return;
+    }
+    case "editor.render": {
+      const payload_ = payload as unknown as EditorRenderPayload;
+      const result = await runEditorRender(payload_);
+      assets = [];
+      await db.job.update({
+        where: { id: jobId },
+        data: {
+          status: "SUCCEEDED",
+          result: { videoUrl: result.videoUrl } as unknown as Prisma.InputJsonValue,
+          completedAt: new Date(),
+        },
+      });
+      await db.generation.update({
+        where: { id: payload_.generationId },
         data: { status: "SUCCEEDED", completedAt: new Date() },
       });
       return;

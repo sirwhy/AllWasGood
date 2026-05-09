@@ -107,7 +107,7 @@ This repo lands in stages, each as its own PR:
 - [ ] **PR 3 — AI Avatar Video** — text → talking head with HeyGen/D-ID
 - [ ] **PR 4 — Link-to-Video** — product URL → storyboard → TTS + visuals → rendered video (FFmpeg worker)
 - [ ] **PR 5 — Auto-Posting** — TikTok / Instagram / YouTube OAuth + scheduled publish
-- [ ] **PR 6 — AI Editor** — Remotion-based timeline editor with AI suggestions
+- [x] **PR 6 — AI Editor** — clip-by-clip composer with FFmpeg render + LLM-ghostwritten on-screen text overlays
 
 ## License
 
