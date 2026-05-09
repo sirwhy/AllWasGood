@@ -45,6 +45,21 @@ const serverSchema = z.object({
   DID_API_KEY: z.string().optional(),
   DEEPGRAM_API_KEY: z.string().optional(),
 
+  TWITTER_CLIENT_ID: z.string().optional(),
+  TWITTER_CLIENT_SECRET: z.string().optional(),
+  LINKEDIN_CLIENT_ID: z.string().optional(),
+  LINKEDIN_CLIENT_SECRET: z.string().optional(),
+  YOUTUBE_CLIENT_ID: z.string().optional(),
+  YOUTUBE_CLIENT_SECRET: z.string().optional(),
+  TIKTOK_CLIENT_ID: z.string().optional(),
+  TIKTOK_CLIENT_SECRET: z.string().optional(),
+  INSTAGRAM_CLIENT_ID: z.string().optional(),
+  INSTAGRAM_CLIENT_SECRET: z.string().optional(),
+  FACEBOOK_CLIENT_ID: z.string().optional(),
+  FACEBOOK_CLIENT_SECRET: z.string().optional(),
+  THREADS_CLIENT_ID: z.string().optional(),
+  THREADS_CLIENT_SECRET: z.string().optional(),
+
   WORKER_CONCURRENCY: z.coerce.number().int().positive().default(4),
 
   SCRAPER_PROXY_URL: z.string().url().optional(),

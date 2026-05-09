@@ -43,6 +43,30 @@ export interface EnqueueGenerationOptions {
   jobOptions?: JobsOptions;
 }
 
+export interface EnqueuePublishOptions {
+  userId: string;
+  scheduledPostId: string;
+  /** Absolute time the post should fire. */
+  scheduledFor: Date;
+  jobOptions?: JobsOptions;
+}
+
+export async function enqueuePublishJob(opts: EnqueuePublishOptions) {
+  const queue = getQueue(QUEUE_NAMES.publish);
+  const delay = Math.max(0, opts.scheduledFor.getTime() - Date.now());
+  return queue.add(
+    "publish-post",
+    { scheduledPostId: opts.scheduledPostId, userId: opts.userId },
+    { jobId: opts.scheduledPostId, delay, ...opts.jobOptions },
+  );
+}
+
+export async function cancelPublishJob(scheduledPostId: string) {
+  const queue = getQueue(QUEUE_NAMES.publish);
+  const job = await queue.getJob(scheduledPostId);
+  if (job) await job.remove();
+}
+
 export async function enqueueGenerationJob(opts: EnqueueGenerationOptions) {
   const job = await db.job.create({
     data: {
