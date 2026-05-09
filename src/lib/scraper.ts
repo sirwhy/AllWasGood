@@ -10,7 +10,14 @@
  * We deliberately keep this dependency-light (only cheerio) and avoid
  * platform-specific scrapers — for serious users we recommend pairing this
  * with a paid scraping API by setting SCRAPER_PROXY_URL in .env.
+ *
+ * SSRF protection: every fetched hostname (and every redirect target) is
+ * resolved to an IP and checked against private/loopback/link-local/CGNAT
+ * ranges before the request is made. This prevents authenticated users from
+ * pointing the scraper at internal services (Redis, Postgres, AWS metadata
+ * at 169.254.169.254, k8s API, etc).
  */
+import { lookup } from "node:dns/promises";
 import * as cheerio from "cheerio";
 
 import { env } from "@/lib/env";
@@ -34,12 +41,12 @@ const USER_AGENT =
   "Mozilla/5.0 (compatible; AllWasGoodBot/1.0; +https://github.com/sirwhy/AllWasGood)";
 
 const FETCH_TIMEOUT_MS = 25_000;
+const MAX_REDIRECTS = 5;
 
 export async function scrapeProductUrl(url: string): Promise<ScrapedProduct> {
-  if (!/^https?:\/\//i.test(url)) {
-    throw new Error("URL must start with http:// or https://");
-  }
-  const html = await fetchHtml(url);
+  const parsed = parseAndValidateUrl(url);
+  await assertSafeHost(parsed.hostname);
+  const html = await fetchHtml(parsed.toString());
   const $ = cheerio.load(html);
 
   const jsonLdProduct = extractJsonLdProduct($);
@@ -47,17 +54,17 @@ export async function scrapeProductUrl(url: string): Promise<ScrapedProduct> {
   const heuristic = extractHeuristic($);
 
   const title =
-    jsonLdProduct?.name ??
-    og.title ??
-    heuristic.title ??
-    $("title").first().text().trim() ??
+    jsonLdProduct?.name ||
+    og.title ||
+    heuristic.title ||
+    $("title").first().text().trim() ||
     "Untitled product";
 
   const description =
-    jsonLdProduct?.description ??
-    og.description ??
-    heuristic.description ??
-    $('meta[name="description"]').attr("content") ??
+    jsonLdProduct?.description ||
+    og.description ||
+    heuristic.description ||
+    $('meta[name="description"]').attr("content") ||
     "";
 
   const images = uniq(
@@ -93,13 +100,48 @@ export async function scrapeProductUrl(url: string): Promise<ScrapedProduct> {
 }
 
 async function fetchHtml(url: string): Promise<string> {
-  const target = env.SCRAPER_PROXY_URL
-    ? `${env.SCRAPER_PROXY_URL}?url=${encodeURIComponent(url)}`
-    : url;
+  // If a SCRAPER_PROXY_URL is configured we trust the proxy operator with
+  // egress filtering — pass through directly. Otherwise we follow redirects
+  // manually, validating each hop's IP against the private-range blocklist.
+  if (env.SCRAPER_PROXY_URL) {
+    const target = `${env.SCRAPER_PROXY_URL}?url=${encodeURIComponent(url)}`;
+    return doFetch(target, { redirect: "follow" });
+  }
+  return fetchHtmlManualRedirects(url);
+}
+
+async function fetchHtmlManualRedirects(initialUrl: string): Promise<string> {
+  let current = initialUrl;
+  for (let i = 0; i <= MAX_REDIRECTS; i++) {
+    const parsed = parseAndValidateUrl(current);
+    await assertSafeHost(parsed.hostname);
+    const res = await rawFetch(parsed.toString(), { redirect: "manual" });
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get("location");
+      if (!loc) throw new Error(`Scraper got ${res.status} without Location header`);
+      current = new URL(loc, parsed.toString()).toString();
+      continue;
+    }
+    if (!res.ok) {
+      throw new Error(`Scraper fetch ${res.status}: ${res.statusText}`);
+    }
+    return await res.text();
+  }
+  throw new Error(`Scraper exceeded ${MAX_REDIRECTS} redirects`);
+}
+
+async function doFetch(url: string, init: RequestInit): Promise<string> {
+  const res = await rawFetch(url, init);
+  if (!res.ok) throw new Error(`Scraper fetch ${res.status}: ${res.statusText}`);
+  return await res.text();
+}
+
+async function rawFetch(url: string, init: RequestInit): Promise<Response> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch(target, {
+    return await fetch(url, {
+      ...init,
       headers: {
         "User-Agent": USER_AGENT,
         Accept:
@@ -107,15 +149,109 @@ async function fetchHtml(url: string): Promise<string> {
         "Accept-Language": "en-US,en;q=0.9,id;q=0.8",
       },
       signal: controller.signal,
-      redirect: "follow",
     });
-    if (!res.ok) {
-      throw new Error(`Scraper fetch ${res.status}: ${res.statusText}`);
-    }
-    return await res.text();
   } finally {
     clearTimeout(t);
   }
+}
+
+function parseAndValidateUrl(raw: string): URL {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("Invalid URL");
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    throw new Error("URL must use http:// or https://");
+  }
+  if (!parsed.hostname) throw new Error("URL missing hostname");
+  return parsed;
+}
+
+/**
+ * Resolve `hostname` and reject if it points at a private/loopback/link-local
+ * range. Also rejects literal IP hostnames in those ranges (where dns.lookup
+ * just echoes the literal back).
+ */
+async function assertSafeHost(hostname: string) {
+  // strip ipv6 brackets
+  const host = hostname.replace(/^\[|\]$/g, "");
+  // bypass guard for explicitly-allowed dev hosts
+  if (host === "localhost" || host.endsWith(".local")) {
+    if (env.NODE_ENV === "production") {
+      throw new Error(`Refusing to fetch ${hostname}: not allowed in production`);
+    }
+    throw new Error(`Refusing to fetch ${hostname}: loopback/local hostnames are blocked`);
+  }
+  let address: string;
+  let family: number;
+  try {
+    const r = await lookup(host, { verbatim: true });
+    address = r.address;
+    family = r.family;
+  } catch {
+    throw new Error(`Could not resolve ${hostname}`);
+  }
+  if (isPrivateIp(address, family)) {
+    throw new Error(
+      `Refusing to fetch ${hostname} (resolves to ${address}): private/internal addresses are blocked`,
+    );
+  }
+}
+
+function isPrivateIp(ip: string, family: number): boolean {
+  if (family === 4) return isPrivateIpv4(ip);
+  if (family === 6) return isPrivateIpv6(ip);
+  return true;
+}
+
+function isPrivateIpv4(ip: string): boolean {
+  const parts = ip.split(".").map(Number);
+  if (parts.length !== 4 || parts.some((p) => Number.isNaN(p) || p < 0 || p > 255)) {
+    return true;
+  }
+  const [a, b] = parts;
+  // 0.0.0.0/8 — "this" network
+  if (a === 0) return true;
+  // 10.0.0.0/8 — RFC 1918
+  if (a === 10) return true;
+  // 100.64.0.0/10 — CGNAT
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  // 127.0.0.0/8 — loopback
+  if (a === 127) return true;
+  // 169.254.0.0/16 — link-local incl. AWS/GCP metadata 169.254.169.254
+  if (a === 169 && b === 254) return true;
+  // 172.16.0.0/12 — RFC 1918
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  // 192.0.0.0/24 + 192.0.2.0/24 + 192.88.99.0/24 — IETF reserved/test/anycast
+  if (a === 192 && b === 0) return true;
+  if (a === 192 && b === 88) return true;
+  // 192.168.0.0/16 — RFC 1918
+  if (a === 192 && b === 168) return true;
+  // 198.18.0.0/15 — benchmarking
+  if (a === 198 && (b === 18 || b === 19)) return true;
+  // 198.51.100.0/24 + 203.0.113.0/24 — TEST-NET-2/3
+  if (a === 198 && b === 51) return true;
+  if (a === 203 && b === 0) return true;
+  // 224.0.0.0/4 — multicast; 240.0.0.0/4 — reserved
+  if (a >= 224) return true;
+  return false;
+}
+
+function isPrivateIpv6(ip: string): boolean {
+  const lower = ip.toLowerCase();
+  if (lower === "::" || lower === "::1") return true;
+  // ::ffff:x.x.x.x — ipv4-mapped, recheck the v4 part
+  const v4mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (v4mapped) return isPrivateIpv4(v4mapped[1]);
+  // fc00::/7 — unique local
+  if (lower.startsWith("fc") || lower.startsWith("fd")) return true;
+  // fe80::/10 — link-local
+  if (/^fe[89ab]/.test(lower)) return true;
+  // ff00::/8 — multicast
+  if (lower.startsWith("ff")) return true;
+  return false;
 }
 
 interface JsonLdProduct {
