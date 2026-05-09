@@ -49,16 +49,25 @@ export function AvatarVideoForm({ providers }: { providers: ProviderOption[] }) 
 
   useEffect(() => {
     if (!provider) return;
+    const controller = new AbortController();
     setLoadingPickers(true);
     Promise.all([
-      fetch(`/api/avatar-providers/${provider}/avatars`).then((r) => r.json()).catch(() => []),
-      fetch(`/api/avatar-providers/${provider}/voices`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/avatar-providers/${provider}/avatars`, { signal: controller.signal })
+        .then((r) => r.json())
+        .catch(() => []),
+      fetch(`/api/avatar-providers/${provider}/voices`, { signal: controller.signal })
+        .then((r) => r.json())
+        .catch(() => []),
     ])
       .then(([a, v]) => {
+        if (controller.signal.aborted) return;
         setAvatars(Array.isArray(a) ? a : []);
         setVoices(Array.isArray(v) ? v : []);
       })
-      .finally(() => setLoadingPickers(false));
+      .finally(() => {
+        if (!controller.signal.aborted) setLoadingPickers(false);
+      });
+    return () => controller.abort();
   }, [provider]);
 
   const providerEntry = providers.find((p) => p.id === provider);
