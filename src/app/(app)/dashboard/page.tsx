@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { Sparkles, ImageIcon, Video, User2, Send, Settings } from "lucide-react";
+import { Sparkles, ImageIcon, Video, Link as LinkIcon, User2, Send, Settings } from "lucide-react";
 
 import { auth } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -62,6 +62,7 @@ export default async function DashboardPage() {
         <h2 className="mb-3 text-lg font-semibold">{tDash("quick_actions")}</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <QuickAction icon={Sparkles} title={tNav("smart_creation")} description="Link → marketing copy + visuals" href="/smart-creation" disabled={credentials.length === 0} />
+          <QuickAction icon={LinkIcon} title={tNav("link_to_video")} description="Product link → narrated video" href="/link-to-video" disabled={credentials.length === 0} />
           <QuickAction icon={ImageIcon} title={tNav("image_agent")} description="Product posters, social posts" disabled />
           <QuickAction icon={Video} title={tNav("video_agent")} description="Text/link → marketing video" disabled />
           <QuickAction icon={User2} title={tNav("avatars")} description="Talking-head AI avatars" href="/avatars" disabled={credentials.length === 0} />

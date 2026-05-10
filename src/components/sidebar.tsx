@@ -7,6 +7,7 @@ import {
   Sparkles,
   ImageIcon,
   Video,
+  Link as LinkIcon,
   User2,
   Send,
   Folder,
@@ -28,6 +29,7 @@ interface NavItem {
 const PRIMARY: NavItem[] = [
   { href: "/dashboard", labelKey: "dashboard", icon: Home },
   { href: "/smart-creation", labelKey: "smart_creation", icon: Sparkles },
+  { href: "/link-to-video", labelKey: "link_to_video", icon: LinkIcon },
   { href: "/image-agent", labelKey: "image_agent", icon: ImageIcon, comingSoon: true },
   { href: "/video-agent", labelKey: "video_agent", icon: Video, comingSoon: true },
   { href: "/avatars", labelKey: "avatars", icon: User2 },
