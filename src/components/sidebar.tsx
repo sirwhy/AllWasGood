@@ -32,7 +32,7 @@ const PRIMARY: NavItem[] = [
   { href: "/link-to-video", labelKey: "link_to_video", icon: LinkIcon },
   { href: "/image-agent", labelKey: "image_agent", icon: ImageIcon, comingSoon: true },
   { href: "/video-agent", labelKey: "video_agent", icon: Video, comingSoon: true },
-  { href: "/avatars", labelKey: "avatars", icon: User2, comingSoon: true },
+  { href: "/avatars", labelKey: "avatars", icon: User2 },
   { href: "/publishing", labelKey: "publishing", icon: Send, comingSoon: true },
 ];
 
