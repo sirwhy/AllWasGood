@@ -113,8 +113,14 @@ async function runPublish(job: Job<PublishJobData>) {
     // - On non-final attempts we keep status=PUBLISHING so the BullMQ retry
     //   passes the status guard above.
     // - On the final attempt we mark FAILED so the UI surfaces the failure.
+    //
+    // BullMQ v5 increments `attemptsMade` to N BEFORE the Nth attempt runs,
+    // so when we hit this catch on attempt N, `attemptsMade === N`. The
+    // final attempt is therefore `attemptsMade >= totalAttempts` — adding
+    // +1 here would burn the last retry by marking FAILED one attempt early
+    // (the next retry would then hit the status guard and silently skip).
     const totalAttempts = job.opts?.attempts ?? 1;
-    const isFinalAttempt = job.attemptsMade + 1 >= totalAttempts;
+    const isFinalAttempt = job.attemptsMade >= totalAttempts;
     await db.scheduledPost.update({
       where: { id: scheduledPostId },
       data: {
