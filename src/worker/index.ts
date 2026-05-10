@@ -25,6 +25,7 @@ import {
 import { QUEUE_NAMES } from "@/lib/queue";
 import type { GeneratedAsset } from "@/providers/types";
 import { runSmartCreation, type SmartCreationPayload } from "@/lib/smart-creation";
+import { startPublishWorker } from "./publish";
 
 interface JobData {
   jobId: string;
@@ -267,6 +268,7 @@ async function main() {
     connection: createRedisConnection(),
     concurrency: env.WORKER_CONCURRENCY,
   });
+  const publishWorker = startPublishWorker();
   worker.on("failed", async (job, err) => {
     console.error(`[worker] job ${job?.id} failed:`, err);
     if (job?.data?.jobId) {
@@ -299,7 +301,7 @@ async function main() {
   });
   process.on("SIGTERM", async () => {
     console.log("[worker] SIGTERM, draining...");
-    await worker.close();
+    await Promise.all([worker.close(), publishWorker.close()]);
     process.exit(0);
   });
 }

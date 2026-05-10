@@ -321,9 +321,14 @@ model ScheduledPost {
   userId          String
   projectId       String?
   socialAccountId String
+  title           String?
   caption         String              @db.Text
   hashtags        String[]            @default([])
   assetUrls       String[]            @default([])  // URLs to media to post
+  // YouTube-specific visibility for the uploaded video. Stored alongside
+  // the post so the worker can forward it to the publisher. Other
+  // platforms ignore this field.
+  privacy         String?             // 'public' | 'unlisted' | 'private'
   scheduledFor    DateTime
   status          ScheduledPostStatus @default(SCHEDULED)
   externalPostId  String?             // post id returned by platform
