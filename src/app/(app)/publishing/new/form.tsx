@@ -140,6 +140,19 @@ export function ScheduleForm({
             className="w-full rounded-md border bg-background p-2 text-sm"
             placeholder={t("title_placeholder")}
           />
+          <label className="text-sm font-medium" htmlFor="privacy">
+            {t("privacy_field")}
+          </label>
+          <select
+            name="privacy"
+            id="privacy"
+            defaultValue="public"
+            className="w-full rounded-md border bg-background p-2 text-sm"
+          >
+            <option value="public">{t("privacy_public")}</option>
+            <option value="unlisted">{t("privacy_unlisted")}</option>
+            <option value="private">{t("privacy_private")}</option>
+          </select>
         </CardContent>
       </Card>
 

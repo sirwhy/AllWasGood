@@ -67,6 +67,8 @@ export interface PostInput {
   assetUrls: string[];
   /** Optional title (used by YouTube; ignored elsewhere). */
   title?: string;
+  /** Privacy for video platforms — YouTube uses 'public' | 'unlisted' | 'private'. */
+  privacy?: "public" | "unlisted" | "private";
 }
 
 export interface PublishedPost {

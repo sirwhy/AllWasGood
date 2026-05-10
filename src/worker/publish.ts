@@ -91,6 +91,10 @@ async function runPublish(job: Job<PublishJobData>) {
         hashtags: post.hashtags,
         assetUrls: post.assetUrls,
         title: post.title ?? undefined,
+        privacy:
+          post.privacy === "public" || post.privacy === "unlisted" || post.privacy === "private"
+            ? post.privacy
+            : undefined,
       },
     });
     await db.scheduledPost.update({

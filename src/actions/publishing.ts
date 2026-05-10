@@ -16,6 +16,7 @@ const inputSchema = z.object({
   assetUrls: z.string().optional(),
   scheduledFor: z.string().min(1),
   title: z.string().optional(),
+  privacy: z.enum(["public", "unlisted", "private"]).optional(),
 });
 
 export async function schedulePosts(formData: FormData) {
@@ -67,6 +68,7 @@ export async function schedulePosts(formData: FormData) {
         scheduledFor,
         status: "SCHEDULED",
         ...(input.title ? { title: input.title } : {}),
+        ...(input.privacy ? { privacy: input.privacy } : {}),
       },
     });
     await enqueuePublishJob({

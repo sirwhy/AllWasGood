@@ -94,7 +94,13 @@ class YoutubeOAuth implements SocialOAuth {
 class YoutubePublisher implements SocialPublisher {
   async publish(opts: {
     accessToken: string;
-    post: { caption: string; hashtags: string[]; assetUrls: string[]; title?: string };
+    post: {
+      caption: string;
+      hashtags: string[];
+      assetUrls: string[];
+      title?: string;
+      privacy?: "public" | "unlisted" | "private";
+    };
   }): Promise<PublishedPost> {
     const videoUrl = opts.post.assetUrls.find((u) => /\.(mp4|webm|mov)(\?|$)/i.test(u));
     if (!videoUrl) throw new Error("YouTube publish requires a video asset URL");
@@ -115,7 +121,14 @@ class YoutubePublisher implements SocialPublisher {
         tags: opts.post.hashtags.slice(0, 30),
         categoryId: "22", // People & Blogs
       },
-      status: { privacyStatus: "private" as const, selfDeclaredMadeForKids: false },
+      // Default to "public" — the whole point of auto-publishing is that
+      // the video goes live without manual intervention. "private" would
+      // upload the video then leave it invisible, defeating the feature.
+      // The user can override per-post via the form (public/unlisted/private).
+      status: {
+        privacyStatus: (opts.post.privacy ?? "public") as "public" | "unlisted" | "private",
+        selfDeclaredMadeForKids: false,
+      },
     };
 
     // Resumable upload — step 1: initiate.
